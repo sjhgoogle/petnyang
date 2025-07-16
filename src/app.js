@@ -9,14 +9,11 @@ const multer = require("multer");
 const fs = require("fs");
 const fsext = require("fs-extra"); // To handle file copying and moving
 const { v4: uuidv4 } = require("uuid");
-const { genVideo } = require("./ffmpeg");
+const { genVideo, progressMap, genVideoASync } = require("./ffmpeg");
 require("dotenv").config();
 
-
-const SimplePropertiesDb = require("simple-properties-db")
-const spd = new SimplePropertiesDb(
-   path.join(__dirname, "db"),
-);
+const SimplePropertiesDb = require("simple-properties-db");
+const spd = new SimplePropertiesDb(path.join(__dirname, "db"));
 
 app.set("trust proxy", 1); // trust first proxy
 app.use(
@@ -145,7 +142,7 @@ app.all("/api", upload.single("file"), async (req, res) => {
   }
 
   const backImgPath = path.join(req.file.path);
-  const fileNm = await genVideo(sceneArr, backImgPath);
+  const fileNm = await genVideoASync(sceneArr, backImgPath);
 
   const newData = {
     fileNm: fileNm,
@@ -157,7 +154,7 @@ app.all("/api", upload.single("file"), async (req, res) => {
   // const videoList = []
   const videoList = spd.get("video") || [];
   videoList.push(newData);
-  spd.set("video", videoList)
+  spd.set("video", videoList);
 
   res.json({
     fileNm: fileNm,
@@ -174,11 +171,33 @@ app.get("/videos", (req, res) => {
   res.json(videoList);
 });
 
+app.get("/progress/:fileNm", (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+  const fileNm = req.params.fileNm;
+
+  const interval = setInterval(() => {
+    console.log(345, progressMap);
+    const percent = progressMap[fileNm] || -1;
+
+    res.write(`data: ${JSON.stringify({ percent })}\n\n`);
+    if (percent >= 100) {
+      res.write(`data: ${JSON.stringify({ percent })}\n\n`);
+      clearInterval(interval);
+      res.end();
+    }
+  }, 1000);
+
+  req.on("close", () => clearInterval(interval));
+});
 
 app.delete("/video/:fileNm", (req, res) => {
   const fileNm = req.params.fileNm;
   let videoList = spd.get("video") || [];
-  const idx = videoList.findIndex(v => v.fileNm === fileNm);
+  const idx = videoList.findIndex((v) => v.fileNm === fileNm);
   if (idx === -1) return res.status(404).json({ error: "Not found" });
 
   // Remove from DB
@@ -286,18 +305,18 @@ app.listen(3000, () => {
 
 // Global error handler middleware
 app.use((err, req, res, next) => {
-  console.error('Global error:', err);
-  res.status(500).json({ error: 'Internal Server Error' });
+  console.error("Global error:", err);
+  res.status(500).json({ error: "Internal Server Error" });
 });
 
 // Prevent server from crashing on uncaught exceptions
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
   // Optionally: notify admin or log to a file
 });
 
 // Prevent server from crashing on unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection:', reason);
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection:", reason);
   // Optionally: notify admin or log to a file
 });

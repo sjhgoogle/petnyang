@@ -130,7 +130,38 @@ function initVue() {
         vm.isLoading = !true;
 
         const { fileNm } = await res.json();
-        this.openModal(fileNm);
+        this.waitLoading(fileNm);
+      },
+
+      waitLoading(fileNm) {
+        // wiat with
+
+        // http://localhost:3000/progress/250716-170210--44b1dce5-9448-4199-bdd5-fdefbc8ac0f6.mp4
+        // Request Method
+        // GET
+        // Status Code
+        // 200 OK
+        // Remote Address
+        // [::1]:3000
+        // Referrer Policy
+        // strict-origin-when-cross-origin
+
+        document.getElementById("percent_modal").showModal();
+
+        const evtSource = new EventSource(`/progress/${fileNm}`);
+        evtSource.onmessage = function (event) {
+          const { percent } = JSON.parse(event.data);
+          console.log("🚀 ~ waitLoading ~ percent:", percent);
+          $("#percent_val").text(`${percent} %`);
+
+          if (percent >= 100) {
+            evtSource.close();
+            vm.openModal(fileNm);
+          }
+        };
+        evtSource.onerror = function () {
+          evtSource.close();
+        };
       },
 
       closeModal() {

@@ -2,9 +2,11 @@ const { spawn } = require("child_process");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const dayjs = require("dayjs");
+const progressMap = {}; // { [fileNm]: percent }
+const durationMap = {}; // Add this if you don't have it
 
 function genFFmpegArgs(args, isSmallVm = false) {
-  if (isSmallVm) {
+  if (!isSmallVm) {
     return spawn("ffmpeg", args);
   } else {
     const safeArgs = args.includes("-threads")
@@ -22,22 +24,84 @@ function genFFmpegArgs(args, isSmallVm = false) {
   }
 }
 
-function executeFFmpeg(args) {
+function executeFFmpeg(args, outputFileName) {
   return new Promise((resolve, reject) => {
-    const isSmallVm = true;
+    const isSmallVm = !true;
     const ffmpegProcess = genFFmpegArgs(args, isSmallVm);
+    let stderrBuffer = "";
 
-    ffmpegProcess.stdout.on("data", (data) => {
-      console.log(`FFmpeg stdout: ${data}`);
-    });
+    ffmpegProcess.stdout.on("data", (data) => {});
 
     ffmpegProcess.stderr.on("data", (data) => {
-      console.error(`FFmpeg stderr: ${data}`);
+      const str = data.toString();
+      // console.log(str); // FFmpeg 로그 전체를 콘솔에 출력 (디버깅용)
+      // console.log("----divide----");
+      stderrBuffer += str; // 새로 받은 데이터를 버퍼에 누적
+
+      // 디버깅을 위해 FFmpeg 로그 조각을 그대로 출력합니다.
+      // 실제 운영 환경에서는 이 로그가 너무 많아질 수 있으므로 주의하거나 필요에 따라 제거하세요.
+      console.log(str.trim()); // trim()으로 공백 제거
+
+      // 1. 메인 비디오의 Duration 파싱 (가장 먼저 발견되는 Duration 사용)
+      // durationMap[outputFileName]이 아직 설정되지 않았을 때만 파싱을 시도합니다.
+      // 'Input #0'이 직접적으로 보이지 않더라도, FFmpeg는 첫 번째 입력 파일의 Duration을 먼저 출력합니다.
+      if (!durationMap[outputFileName]) {
+        // 전체 stderrBuffer에서 'Duration:' 패턴을 찾습니다.
+        // 가장 먼저 발견되는 'Duration'이 메인 비디오의 길이일 가능성이 높습니다.
+        const durationMatch = stderrBuffer.match(
+          /Duration: (\d+):(\d+):([\d.]+)/
+        );
+
+        if (durationMatch) {
+          const hours = parseInt(durationMatch[1]);
+          const minutes = parseInt(durationMatch[2]);
+          const seconds = parseFloat(durationMatch[3]);
+          durationMap[outputFileName] = hours * 3600 + minutes * 60 + seconds;
+          console.log(
+            `[FFmpeg] '${outputFileName}'의 총 길이: ${durationMap[
+              outputFileName
+            ].toFixed(2)} 초 (로그에서 첫 번째 발견된 Duration 사용)`
+          );
+          // Duration을 찾았으면, 버퍼의 이전 내용을 잘라내어 메모리 사용량을 최적화할 수 있습니다.
+          // 하지만 Duration은 초기에만 필요하므로 필수는 아닙니다.
+          // stderrBuffer = stderrBuffer.substring(stderrBuffer.indexOf(durationMatch[0]) + durationMatch[0].length);
+        }
+      }
+
+      // 2. 현재 처리 시간(time) 파싱 및 진행률 계산
+      // 'time=' 정보는 각 'frame=' 라인에 포함되어 있으므로, 현재 받은 'str'에서 바로 찾습니다.
+      const timeMatch = str.match(/time=(\d+):(\d+):([\d.]+)/);
+      if (durationMap[outputFileName] && timeMatch) {
+        const hours = parseInt(timeMatch[1]);
+        const minutes = parseInt(timeMatch[2]);
+        const seconds = parseFloat(timeMatch[3]);
+        const currentTime = hours * 3600 + minutes * 60 + seconds;
+
+        const percent = Math.min(
+          100,
+          Math.round((currentTime / durationMap[outputFileName]) * 100)
+        );
+
+        // 진행률이 이전과 다를 때만 업데이트하여 불필요한 로그를 줄입니다.
+        if (progressMap[outputFileName] !== percent) {
+          progressMap[outputFileName] = percent;
+          console.log(
+            `[FFmpeg Progress] '${outputFileName}': ${progressMap[outputFileName]}%`
+          );
+
+          // 여기서 WebSocket 등을 통해 클라이언트에게 진행률을 전송하는 로직을 추가할 수 있습니다.
+          // 예: socket.emit('ffmpegProgress', { file: outputFileName, progress: percent });
+        }
+      }
+      console.log(1323, progressMap);
     });
 
     ffmpegProcess.on("close", (code) => {
+      // progressMap[fileNm] = 100;
+
       if (code === 0) {
         console.log("FFmpeg process completed successfully");
+        progressMap[outputFileName] = 101; // 수동으로 100%로 설정
         resolve();
       } else {
         console.error(`FFmpeg process exited with code ${code}`);
@@ -237,15 +301,15 @@ function genScript(sceneArr, backImgPath, outputFilePath) {
  * @returns outputFilePath
  */
 async function genVideo(sceneArr, backImgPath) {
+  const fileNm = `${dayjs().format("YYMMDD-HHmmss")}--${uuidv4()}.mp4`;
   return new Promise(async (resolve, reject) => {
-    const fileNm = `${dayjs().format("YYMMDD-HHmmss")}--${uuidv4()}.mp4`;
     const outputFilePath = path.join(__dirname, "output", fileNm);
 
     // const outputFilePath = `${Date.now()}-${uuidv4()}.mp4`;
     const runFfmpegArgs = genScript(sceneArr, backImgPath, outputFilePath);
-    console.log("🚀 ~ returnnewPromise ~ runFfmpegArgs:", runFfmpegArgs);
+    // console.log("🚀 ~ returnnewPromise ~ runFfmpegArgs:", runFfmpegArgs);
 
-    console.log("full", runFfmpegArgs.join(" "));
+    // console.log("full command >> ", runFfmpegArgs.join(" "));
     // resolve(outputFilePath);
 
     try {
@@ -267,7 +331,27 @@ async function genVideo(sceneArr, backImgPath) {
   });
 }
 
-module.exports = { genVideo };
+async function genVideoASync(sceneArr, backImgPath) {
+  const fileNm = `${dayjs().format("YYMMDD-HHmmss")}--${uuidv4()}.mp4`;
+  const outputFilePath = path.join(__dirname, "output", fileNm);
+  const runFfmpegArgs = genScript(sceneArr, backImgPath, outputFilePath);
+  // console.log("🚀 ~ runFfmpegArgs:", runFfmpegArgs);
+  // console.log("full", runFfmpegArgs.join(" "));
+
+  // ffmpeg를 백그라운드에서 실행 (await 하지 않음)
+  executeFFmpeg(runFfmpegArgs, fileNm)
+    .then(() => {
+      console.log(`FFmpeg done: ${fileNm}`);
+    })
+    .catch((error) => {
+      console.error(`FFmpeg failed: ${fileNm}`, error);
+    });
+
+  // fileNm을 즉시 반환
+  return fileNm;
+}
+
+module.exports = { genVideo, progressMap, genVideoASync };
 
 // 이것만 테스트할때사용
 if (require.main === module) {

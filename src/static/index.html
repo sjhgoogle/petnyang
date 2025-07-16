@@ -56,9 +56,8 @@
       id="app"
       class="grid grid-rows-[7fr_3fr] lg:grid-rows-1 lg:grid-cols-2 w-full h-screen"
     >
-  
       <main
-        style="grid-template-rows: max-content;"
+        style="grid-template-rows: max-content"
         class="pt-4 bg-purple-200 bg-white h-full w-full space-y-8 max-w-lg mx-auto grid place-items-center"
       >
         <nav>
@@ -141,6 +140,10 @@
         Made by 팻냥
       </a>
 
+      <dialog id="percent_modal">
+        percent :
+        <p id="percent_val"></p>
+      </dialog>
       <dialog id="my_modal" class="modal" @close="closeModal()">
         <div class="modal-box">
           <form method="dialog">
@@ -157,7 +160,7 @@
           <!-- <p class="py-4">Press ESC key or click outside to close</p> -->
           <video
             id="my_video"
-            src="/video/240911-113712--0f68d061-1067-4df8-9a81-8e321d879cf9.mp4"
+            src="/default_petnyang.mp4"
             class="w-full"
             controls
           ></video>
