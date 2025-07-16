@@ -3,9 +3,29 @@ const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const dayjs = require("dayjs");
 
+function genFFmpegArgs(args, isSmallVm = false) {
+  if (isSmallVm) {
+    return spawn("ffmpeg", args);
+  } else {
+    const safeArgs = args.includes("-threads")
+      ? args
+      : [...args, "-threads", "1"];
+    const process = spawn("nice", [
+      "-n",
+      "19", // Lowest CPU priority
+      "ionice",
+      "-c3", // Lowest IO priority
+      "ffmpeg",
+      ...safeArgs,
+    ]);
+    return process;
+  }
+}
+
 function executeFFmpeg(args) {
   return new Promise((resolve, reject) => {
-    const ffmpegProcess = spawn("ffmpeg", args);
+    const isSmallVm = true;
+    const ffmpegProcess = genFFmpegArgs(args, isSmallVm);
 
     ffmpegProcess.stdout.on("data", (data) => {
       console.log(`FFmpeg stdout: ${data}`);

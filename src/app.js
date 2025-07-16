@@ -283,3 +283,21 @@ app.listen(3000, () => {
 //   .listen(3333, () => {
 //     console.log("Server is running on port 3000");
 //   });
+
+// Global error handler middleware
+app.use((err, req, res, next) => {
+  console.error('Global error:', err);
+  res.status(500).json({ error: 'Internal Server Error' });
+});
+
+// Prevent server from crashing on uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  // Optionally: notify admin or log to a file
+});
+
+// Prevent server from crashing on unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
+  // Optionally: notify admin or log to a file
+});
