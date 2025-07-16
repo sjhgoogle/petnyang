@@ -166,3 +166,7 @@ cython_debug/
 node_modules/
 src/output/
 src/uploads
+src/db/db.properties
+
+
+# custom
