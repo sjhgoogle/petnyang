@@ -52,21 +52,21 @@ const vueData = {
     pem1: {
       title: "고양이1 줘팸",
       desc: "팸1...",
-      mentArr: ["진실의..."],
+      mentArr: ["그게 언어면"],
       initPos: { xPos: 20, yPos: 1000 },
       timeSlice: { start: 12.5, end: 20 },
     },
     pem2: {
       title: "고양이1 줘팸",
       desc: "팸2...",
-      mentArr: ["방으로..."],
+      mentArr: ["우리 할머니가"],
       initPos: { xPos: 20, yPos: 1100 },
       timeSlice: { start: 13, end: 20 },
     },
     pem3: {
       title: "고양이1 줘팸",
       desc: "팸3...",
-      mentArr: ["입장..."],
+      mentArr: ["빌게이츠지"],
       initPos: { xPos: 20, yPos: 1200 },
       timeSlice: { start: 13.5, end: 20 },
     },
@@ -127,6 +127,14 @@ function initVue() {
           method: "POST",
           body: formData,
         });
+
+        if (res.status === 400) {
+          const err = await res.text();
+          alert(err);
+          vm.isLoading = !true;
+          return;
+        }
+
         vm.isLoading = !true;
 
         const { fileNm } = await res.json();

@@ -9,7 +9,7 @@ const multer = require("multer");
 const fs = require("fs");
 const fsext = require("fs-extra"); // To handle file copying and moving
 const { v4: uuidv4 } = require("uuid");
-const { genVideo, progressMap, genVideoASync } = require("./ffmpeg");
+const { genVideo, progressMap, genVideoASync, VALS } = require("./ffmpeg");
 require("dotenv").config();
 
 const SimplePropertiesDb = require("simple-properties-db");
@@ -139,6 +139,17 @@ app.all("/api", upload.single("file"), async (req, res) => {
   if (!file) {
     res.status(400).send("No file uploaded");
     return;
+  }
+
+  console.log("🚀 ~ currentEncodingCount:", VALS);
+  // Concurrency check
+  if (VALS.CurrentEncodingCount >= VALS.MAX_CONCURRENT_ENCODING) {
+    return res.status(400).json({
+      error:
+        "현재 진행중인 작업이 너무 만은거시에요~ cnt = " +
+        VALS.CurrentEncodingCount +
+        "",
+    });
   }
 
   const backImgPath = path.join(req.file.path);

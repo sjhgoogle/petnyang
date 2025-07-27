@@ -331,7 +331,20 @@ async function genVideo(sceneArr, backImgPath) {
   });
 }
 
+const VALS = {
+  MAX_CONCURRENT_ENCODING: 1,
+  CurrentEncodingCount: 0,
+};
+
 async function genVideoASync(sceneArr, backImgPath) {
+  if (VALS.CurrentEncodingCount >= VALS.MAX_CONCURRENT_ENCODING) {
+    throw new Error(
+      "현재 코딩중인 영상이 너무 많은것이에요~ job: " +
+        VALS.CurrentEncodingCount
+    );
+  }
+  VALS.CurrentEncodingCount = VALS.CurrentEncodingCount + 1;
+
   const fileNm = `${dayjs().format("YYMMDD-HHmmss")}--${uuidv4()}.mp4`;
   const outputFilePath = path.join(__dirname, "output", fileNm);
   const runFfmpegArgs = genScript(sceneArr, backImgPath, outputFilePath);
@@ -345,13 +358,21 @@ async function genVideoASync(sceneArr, backImgPath) {
     })
     .catch((error) => {
       console.error(`FFmpeg failed: ${fileNm}`, error);
+    })
+    .finally(() => {
+      VALS.CurrentEncodingCount = VALS.CurrentEncodingCount - 1;
     });
 
   // fileNm을 즉시 반환
   return fileNm;
 }
 
-module.exports = { genVideo, progressMap, genVideoASync };
+module.exports = {
+  genVideo,
+  progressMap,
+  genVideoASync,
+  VALS,
+};
 
 // 이것만 테스트할때사용
 if (require.main === module) {
