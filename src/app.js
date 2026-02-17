@@ -14,6 +14,7 @@ require("dotenv").config();
 
 const SimplePropertiesDb = require("simple-properties-db");
 const spd = new SimplePropertiesDb(path.join(__dirname, "db"));
+console.log("🚀 ~ spd:", spd);
 
 app.set("trust proxy", 1); // trust first proxy
 app.use(
@@ -25,7 +26,7 @@ app.use(
     origin: true,
     // methods: ["GET", "POST", "OPTIONS"],
     credentials: true,
-  })
+  }),
 );
 app.use(
   session({
@@ -42,7 +43,7 @@ app.use(
       httpOnly: !true,
       secure: true,
     },
-  })
+  }),
   // session({
   //   secret: "@codestates",
   //   resave: false,

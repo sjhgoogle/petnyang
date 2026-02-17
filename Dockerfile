@@ -23,6 +23,6 @@ EXPOSE 3000
 # CMD ["npm", "start"]
 CMD ["node", "src/app.js"]
 
-# docker build -t pet1 .
-# docker run -itd --name petnyang -p 3000:3000 pet1
-# docker run -itd --name petnyang -p 80:3000 siha159159/petnyang
+# docker build -t petnyang .
+# docker tag petnyang siha159159/petnyang
+# docker push siha159159/petnyang
